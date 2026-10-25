@@ -1,0 +1,8 @@
+# per-machine caches / outputs written by feature_smoke_test.py
+.miopen_db/
+.miopen_db_cold/
+.triton_cache/
+.cache_test/
+amd_report_v2*.json
+tunableop_results*.csv
+__pycache__/

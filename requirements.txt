@@ -1,0 +1,11 @@
+# PyTorch ROCm build is installed separately (see scripts/install_windows.ps1)
+# Pin exact versions here once the smoke test passes on your machine.
+pyyaml
+safetensors
+numpy
+pillow
+tqdm
+transformers
+diffusers
+accelerate
+pytest

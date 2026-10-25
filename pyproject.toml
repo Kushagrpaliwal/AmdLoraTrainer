@@ -1,0 +1,16 @@
+[project]
+name = "amdlora"
+version = "0.1.0"
+description = "AMD/ROCm-optimized LoRA trainer for LLMs and diffusion models"
+requires-python = ">=3.12,<3.13"
+dependencies = ["pyyaml", "safetensors", "numpy", "pillow", "tqdm"]
+
+[project.scripts]
+amdlora = "amdlora.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

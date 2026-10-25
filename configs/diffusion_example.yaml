@@ -1,0 +1,10 @@
+model_family: diffusion
+base_model: path/to/flux-klein-base
+dataset_dir: data/my_images        # image.png + image.txt pairs
+output_dir: outputs/flux_run1
+lora: {rank: 16, alpha: 16, dropout: 0.0, target_modules: [to_q, to_k, to_v, to_out.0]}
+train: {epochs: 20, micro_batch_size: 1, grad_accum: 4, lr: 1.0e-4, warmup_steps: 50, max_grad_norm: 1.0, optimizer: adamw8bit, seed: 42}
+precision: {compute_dtype: bf16, base_load: fp8}
+memory: {gradient_checkpointing: true, cpu_offload: false, cache_latents: true, cache_text_embeds: true, tiled_vae: true}
+attention: sdpa_flash
+amd: {compile: false, tunableop: true, hipblaslt: false, miopen_find_mode: FAST}

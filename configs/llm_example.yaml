@@ -1,0 +1,10 @@
+model_family: llm
+base_model: path/to/gemma-safetensors-dir
+dataset_dir: data/my_text
+output_dir: outputs/llm_run1
+lora: {rank: 16, alpha: 16, dropout: 0.05, target_modules: [q_proj, k_proj, v_proj, o_proj]}
+train: {epochs: 3, micro_batch_size: 1, grad_accum: 16, lr: 2.0e-4, warmup_steps: 20, max_grad_norm: 1.0, optimizer: adamw, seed: 42}
+precision: {compute_dtype: bf16, base_load: bf16}   # bf16 | fp8 | nf4
+memory: {gradient_checkpointing: true, cpu_offload: false}
+attention: sdpa_flash                                # sdpa_flash | sdpa_efficient | chunked | flash_attn_triton
+amd: {compile: false, tunableop: true, hipblaslt: false, miopen_find_mode: FAST}

@@ -15,34 +15,33 @@ def inject_lora(
   dropout:float = 0.0,
   lora_dtype: torch.dtype = torch.float32
 ) -> list[str]:
-  """Replace matching Linear modules with LoRA layers and freeze the model.
 
-  Target names may be full module paths or suffixes such as ``q_proj``.
-  Returns the full names of modules that were replaced.
-  """
-  if not target_modules:
-    raise ValueError("target_modules must contain at least one module name")
+  for p in model.parameters():
+    p.requires_grad_(False)
+ 
+  found = []
+  for name,module in model.named_modules():
+    if isinstance(module,nn.Linear) and _matches(name,target_modules):
+     found.append(name)
 
-  model.requires_grad_(False)
-  replaced: list[str] = []
-
-  # Snapshot the module paths before replacing children.
-  for name, module in list(model.named_modules()):
-    if not name or not isinstance(module, nn.Linear) or not _matches(name, target_modules):
+  replaced = []
+  for name in found:
+    parent_name , _ , child_name = name.rpartition(".")
+    parent = model.get_submodule(parent_name) if parent_name else module ;
+    if isinstance(parent,LoRALinear):
       continue
-
-    parent_name, _, child_name = name.rpartition(".")
-    parent = model.get_submodule(parent_name) if parent_name else model
-    setattr(parent, child_name, LoRALinear(
-      module,
-      rank=rank,
-      alpha=alpha,
-      dropout=dropout,
-      lora_dtype=lora_dtype,
-    ))
+    child = getattr( parent, child_name )
+    setattr(parent,child_name,LoRALinear(child,rank,alpha,dropout,lora_dtype))
     replaced.append(name)
-
+  
   if not replaced:
-    raise ValueError(f"No Linear modules matched target_modules: {target_modules}")
-
+    raise ValueError(f"No Linear Layers Matched target_modules={target_modules}")
   return replaced
+
+def count_parameters(model:nn.Module) -> tuple[int,int]:
+  trainable = sum(p.numel() for p in model.parameters() if p.requires_grad )
+  total = sum(p.numel() for p in model.parameters())
+  return trainable , total
+
+
+    

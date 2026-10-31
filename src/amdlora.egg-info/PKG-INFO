@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: amdlora
+Version: 0.1.0
+Summary: AMD/ROCm-optimized LoRA trainer for LLMs and diffusion models
+Requires-Python: <3.13,>=3.12
+Requires-Dist: pyyaml
+Requires-Dist: safetensors
+Requires-Dist: numpy
+Requires-Dist: pillow
+Requires-Dist: tqdm

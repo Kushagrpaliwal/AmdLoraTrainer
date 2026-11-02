@@ -6,3 +6,5 @@
 amd_report_v2*.json
 tunableop_results*.csv
 __pycache__/
+.pytest_tmp/
+models/

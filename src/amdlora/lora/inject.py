@@ -27,7 +27,7 @@ def inject_lora(
   replaced = []
   for name in found:
     parent_name , _ , child_name = name.rpartition(".")
-    parent = model.get_submodule(parent_name) if parent_name else module ;
+    parent = model.get_submodule(parent_name) if parent_name else model
     if isinstance(parent,LoRALinear):
       continue
     child = getattr( parent, child_name )

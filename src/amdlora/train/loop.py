@@ -12,6 +12,8 @@ from ..io.save import save_lora
 from ..lora.inject import inject_lora, count_parameters
 from ..models.loader import load_base
 from ..models.registry import default_targets
+from ..monitor.vram import peak_vram_gib , reset_peak_vram
+from .memory import apply_memory_settings
 from .optim import build_optimizer, make_scheduler
 
 
@@ -24,16 +26,11 @@ def count_total_updates(num_batches: int, cfg) -> int:
     return total
 
 
-def enable_gradient_checkpointing(model, cfg) -> None:
-    if cfg.memory.gradient_checkpointing and hasattr(model, "gradient_checkpointing_enable"):
-        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
-
-
 def print_progress(update, total, epoch, epochs, recent_losses, learning_rate, tokens, seconds, on_gpu) -> None:
     average_loss = sum(recent_losses) / len(recent_losses)
     vram = ""
     if on_gpu:
-        vram = f" | peak VRAM {torch.cuda.max_memory_allocated() / 2**30:.2f} GB"
+        vram = f" | peak VRAM {peak_vram_gib():.2f} GB"
     print(f"step {update}/{total} | epoch {epoch}/{epochs} | loss {average_loss:.4f} | "
           f"Lr {learning_rate:.2e} | {tokens / max(seconds, 1e-9):,.0f} tok/s{vram}")
 
@@ -48,12 +45,11 @@ def run_training(model, loader, cfg, out_dir, device) -> list[float]:
     optimizer = build_optimizer(lora_params, t.optimizer, t.lr)
     total_updates = count_total_updates(len(loader), cfg)
     scheduler = make_scheduler(optimizer, t.warmup_steps, total_updates)
-    enable_gradient_checkpointing(model, cfg)
+    apply_memory_settings(model,cfg)
     model.train()
 
     on_gpu = torch.device(device).type == "cuda"
-    if on_gpu:
-        torch.cuda.reset_peak_memory_stats()
+    reset_peak_vram()
 
     # ---- training ----
     loss_history: list[float] = []

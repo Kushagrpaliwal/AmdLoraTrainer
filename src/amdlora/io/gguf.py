@@ -19,7 +19,7 @@ def find_quantize_command(llama_cpp_dir, explicit = None) -> list[str]:
   candidates = []
   if explicit:
     candidates.append(Path(explicit))
-  if os.environ.get("LLAMA_QUANTIZE")
+  if os.environ.get("LLAMA_QUANTIZE"):
     candidates.append(Path(os.environ["LLAMA_QUANTIZE"]))
   
   on_path = shutil.which("llama-quantize")
@@ -45,7 +45,8 @@ def _run(command: list[str], env: dict, what: dict) -> None:
     raise RuntimeError(f"{what} failed ( exit code {result.returncode}) . See the messages above. ")
 
 def convert_to_gguf(model_dir,out_dir,llama_cpp_dir,name="model",quants=("Q8_0","Q4_K_M") , quantize_exe=None) -> list[Path]:
-  model_dir, out_dir, llama_dir = Path(model_dir) , Path(out_dir) , Path(llama_dir)
+ 
+  model_dir, out_dir, llama_dir = Path(model_dir) , Path(out_dir) , Path(llama_cpp_dir)
   
   if not (model_dir / "config.json").exists():
     raise FileNotFoundError(f"{model_dir} is not a model folder (no config.json). Run the merge step first")
@@ -56,8 +57,8 @@ def convert_to_gguf(model_dir,out_dir,llama_cpp_dir,name="model",quants=("Q8_0",
   env = os.environ.copy()
   env["PYTHONPATH"] = str(llama_dir / "gguf-py") + os.pathsep + env.get("PYTHONPATH" , "")
 
-  out_dir.mkdir(parents=True, exists_ok=True)
-  full_precision = out_dir / f"{name}-bf-16.gguf"
+  out_dir.mkdir(parents=True, exist_ok=True)
+  full_precision = out_dir / f"{name}-bf16.gguf"
   _run([sys.executable, str(convert_script) , str(model_dir), "--outfile", str(full_precision), "--outtype" , "bf16"] , env, "GGUF conversion")
 
   written = [full_precision]
@@ -78,8 +79,7 @@ def inspect_gguf(path,llama_cpp_dir=None) -> dict:
   field = reader.fields.get("general.architecture")
   architecture = bytes(field.parts[field.data[0]]).decode("utf-8") if field is not None else None
   types = Counter(tensor.tensor_type.name for tensor in reader.tensors)
-  return {"architecture": architecture , "tensors": len(reader.tensor), "types": dict(types), "size_gb": path.stat().st_size / 1e9 }
-
+  return {"architecture": architecture, "tensors": len(reader.tensors), "types": dict(types), "size_gb": path.stat().st_size / 1e9}
 
 
 

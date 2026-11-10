@@ -1,0 +1,12 @@
+# The best combination from the benchmark: tuned matrix multiplies + torch.compile + fixed shapes.
+# Run smollm_tune.yaml once first so the TunableOp results file exists.
+model_family: llm
+base_model: models/smollm2-360m
+dataset_dir: data/sample
+output_dir: outputs/smollm_fast
+lora: {rank: 16, alpha: 16, dropout: 0.0, target_modules: [q_proj, k_proj, v_proj, o_proj]}
+train: {epochs: 8, micro_batch_size: 4, grad_accum: 2, lr: 5.0e-4, warmup_steps: 3, max_grad_norm: 1.0, optimizer: adamw, seed: 42, save_every: 0, max_len: 64, pad_to: 64, log_every: 2}
+precision: {compute_dtype: bf16, base_load: bf16}
+memory: {gradient_checkpointing: false, cpu_offload: false}
+attention: sdpa_flash
+amd: {compile: true, tunableop: true, tunableop_tune: false, hipblaslt: false, miopen_find_mode: FAST}

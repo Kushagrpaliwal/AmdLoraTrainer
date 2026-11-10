@@ -1,0 +1,13 @@
+# Step 1 of 2 for TunableOp: a SHORT run that measures matrix-multiply kernels and writes the
+# results file (.cache/tunableop_results0.csv). Keep micro_batch_size and pad_to identical to
+# smollm_fast.yaml, because the results only apply to these exact shapes.
+model_family: llm
+base_model: models/smollm2-360m
+dataset_dir: data/sample
+output_dir: outputs/smollm_tune
+lora: {rank: 16, alpha: 16, dropout: 0.0, target_modules: [q_proj, k_proj, v_proj, o_proj]}
+train: {epochs: 8, micro_batch_size: 4, grad_accum: 2, lr: 5.0e-4, warmup_steps: 3, max_grad_norm: 1.0, optimizer: adamw, seed: 42, save_every: 0, max_len: 64, pad_to: 64, max_steps: 4, log_every: 2}
+precision: {compute_dtype: bf16, base_load: bf16}
+memory: {gradient_checkpointing: false, cpu_offload: false}
+attention: sdpa_flash
+amd: {compile: false, tunableop: false, tunableop_tune: true, hipblaslt: false, miopen_find_mode: FAST}

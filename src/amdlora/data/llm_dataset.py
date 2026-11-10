@@ -43,10 +43,19 @@ class TextDataset(Dataset):
         return {"input_ids": ids, "labels": ids.clone()}
 
 
-def make_collate(pad_id: int):
-    """Pads a batch to its longest sample. Padding is ignored by the loss (label -100)."""
+def make_collate(pad_id: int, pad_to: int = 0):
+    """Pads a batch. Padding is ignored by the loss (label -100).
+
+    pad_to = 0: pad to the longest sample in the batch (shapes vary from batch to batch).
+    pad_to = N: always pad to exactly N tokens. Every batch then has the same shape, which
+                torch.compile and TunableOp need to pay off.
+    """
     def collate(batch: list[dict]) -> dict:
-        n = max(len(b["input_ids"]) for b in batch)
+        longest = max(len(b["input_ids"]) for b in batch)
+        if pad_to and longest > pad_to:
+            raise ValueError(f"A sample has {longest} tokens but pad_to is {pad_to}. "
+                             "Raise pad_to or lower max_len.")
+        n = pad_to or longest
         ids = torch.full((len(batch), n), pad_id, dtype=torch.long)
         labels = torch.full((len(batch), n), -100, dtype=torch.long)
         mask = torch.zeros((len(batch), n), dtype=torch.long)

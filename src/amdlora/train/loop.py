@@ -1,4 +1,10 @@
-"""Step 7: training loop (next-token CE for LLM, noise/flow loss for diffusion)."""
+"""Training loop for LLMs (next-token prediction). Diffusion training comes later.
+
+Changes in the "AMD speed" step (search for "AMD SPEED"):
+    - optional torch.compile (amd.compile in the config), always saving from the original model
+    - fixed-shape batches (train.pad_to), which torch.compile and TunableOp need
+    - the progress line also shows ms per update, which stays meaningful with padding
+"""
 from __future__ import annotations
 import math
 import time
@@ -12,7 +18,7 @@ from ..io.save import save_lora
 from ..lora.inject import inject_lora, count_parameters
 from ..models.loader import load_base
 from ..models.registry import default_targets
-from ..monitor.vram import peak_vram_gib , reset_peak_vram
+from ..monitor.vram import peak_vram_gib, reset_peak_vram
 from .memory import apply_memory_settings
 from .optim import build_optimizer, make_scheduler
 
@@ -26,13 +32,14 @@ def count_total_updates(num_batches: int, cfg) -> int:
     return total
 
 
-def print_progress(update, total, epoch, epochs, recent_losses, learning_rate, tokens, seconds, on_gpu) -> None:
+def print_progress(update, total, epoch, epochs, recent_losses, learning_rate,
+                   tokens, seconds, updates_in_window, on_gpu) -> None:
     average_loss = sum(recent_losses) / len(recent_losses)
-    vram = ""
-    if on_gpu:
-        vram = f" | peak VRAM {peak_vram_gib():.2f} GB"
+    vram = f" | peak VRAM {peak_vram_gib():.2f} GB" if on_gpu else ""
+    ms_per_update = seconds / max(updates_in_window, 1) * 1000     # AMD SPEED: new column
     print(f"step {update}/{total} | epoch {epoch}/{epochs} | loss {average_loss:.4f} | "
-          f"Lr {learning_rate:.2e} | {tokens / max(seconds, 1e-9):,.0f} tok/s{vram}")
+          f"lr {learning_rate:.2e} | {tokens / max(seconds, 1e-9):,.0f} tok/s | "
+          f"{ms_per_update:,.0f} ms/update{vram}")
 
 
 def run_training(model, loader, cfg, out_dir, device) -> list[float]:
@@ -45,8 +52,12 @@ def run_training(model, loader, cfg, out_dir, device) -> list[float]:
     optimizer = build_optimizer(lora_params, t.optimizer, t.lr)
     total_updates = count_total_updates(len(loader), cfg)
     scheduler = make_scheduler(optimizer, t.warmup_steps, total_updates)
-    apply_memory_settings(model,cfg)
+    apply_memory_settings(model, cfg)
     model.train()
+
+    # AMD SPEED: run forward passes through `runner`; always save from the original `model`
+    # (a compiled wrapper would rename the LoRA keys inside the saved file).
+    runner = torch.compile(model) if cfg.amd.compile else model
 
     on_gpu = torch.device(device).type == "cuda"
     reset_peak_vram()
@@ -56,6 +67,7 @@ def run_training(model, loader, cfg, out_dir, device) -> list[float]:
     loss_sum = 0.0            # unscaled micro-batch losses since the last optimizer step
     batches_in_update = 0
     updates_done = 0
+    updates_since_log = 0
     tokens_since_log = 0
     log_timer_start = time.perf_counter()
     finished = False
@@ -64,7 +76,7 @@ def run_training(model, loader, cfg, out_dir, device) -> list[float]:
         for batch_index, batch in enumerate(loader):
             batch = {name: tensor.to(device) for name, tensor in batch.items()}
 
-            loss = model(**batch).loss
+            loss = runner(**batch).loss
             (loss / t.grad_accum).backward()
 
             loss_sum += loss.item()
@@ -83,20 +95,17 @@ def run_training(model, loader, cfg, out_dir, device) -> list[float]:
             loss_history.append(loss_sum / batches_in_update)
             loss_sum, batches_in_update = 0.0, 0
             updates_done += 1
+            updates_since_log += 1
 
             if updates_done % t.log_every == 0 or updates_done == total_updates:
                 print_progress(
-                    updates_done,
-                    total_updates,
-                    epoch,
-                    t.epochs,
-                    loss_history[-t.log_every:],
-                    scheduler.get_last_lr()[0],
-                    tokens_since_log,
-                    time.perf_counter() - log_timer_start,
-                    on_gpu,
+                    updates_done, total_updates, epoch, t.epochs,
+                    loss_history[-t.log_every:], scheduler.get_last_lr()[0],
+                    tokens_since_log, time.perf_counter() - log_timer_start,
+                    updates_since_log, on_gpu,
                 )
-                tokens_since_log, log_timer_start = 0, time.perf_counter()
+                tokens_since_log, updates_since_log = 0, 0
+                log_timer_start = time.perf_counter()
 
             if t.save_every > 0 and updates_done % t.save_every == 0:
                 save_lora(model, out_dir / f"lora_step{updates_done}.safetensors")
@@ -131,13 +140,21 @@ def train(cfg) -> int:
 
     dataset = TextDataset(load_texts(cfg.dataset_dir), tokenizer, cfg.train.max_len)
 
+    # AMD SPEED: with pad_to set, every batch has the exact same shape. The last partial
+    # batch is dropped so that no odd shape appears (shuffling still covers every sample).
     loader = DataLoader(
         dataset,
         batch_size=cfg.train.micro_batch_size,
         shuffle=True,
-        collate_fn=make_collate(tokenizer.pad_token_id),
+        collate_fn=make_collate(tokenizer.pad_token_id, cfg.train.pad_to),
         num_workers=0,
+        drop_last=cfg.train.pad_to > 0,
     )
+    if len(loader) == 0:
+        raise ValueError("No batches: the dataset is smaller than micro_batch_size "
+                         "(with pad_to set, the last partial batch is dropped).")
+    if cfg.amd.compile and cfg.train.pad_to == 0:
+        print("warning: amd.compile with variable-length batches recompiles often. Set train.pad_to.")
 
     print(f"samples: {len(dataset)} | batches per epoch: {len(loader)}")
 

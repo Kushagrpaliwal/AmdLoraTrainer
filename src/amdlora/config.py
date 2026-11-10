@@ -1,5 +1,6 @@
+"""Step 1: single typed config for every setting. Loaded from YAML."""
 from __future__ import annotations
-from dataclasses import dataclass, fields, field, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 import yaml
@@ -19,20 +20,22 @@ class TrainCfg:
     micro_batch_size: int = 1
     grad_accum: int = 1
     lr: float = 1e-4
-    warmup_steps: int = 1
+    warmup_steps: int = 0
     max_grad_norm: float = 1.0
-    optimizer: str = "adamw"
+    optimizer: str = "adamw"      # adamw | adamw8bit | paged_adamw
     seed: int = 42
     save_every: int = 500
     max_len: int = 512
-    max_steps: int = 0
+    max_steps: int = 0            # 0 = run all epochs
     log_every: int = 10
+    pad_to: int = 0               # 0 = pad each batch to its longest sample; N = always pad to N tokens
+                                  # (fixed shapes: needed for torch.compile and TunableOp to pay off)
 
 
 @dataclass
 class PrecisionCfg:
     compute_dtype: str = "bf16"
-    base_load: str = "bf16"
+    base_load: str = "bf16"       # bf16 | fp8 | nf4
 
 
 @dataclass
@@ -47,15 +50,16 @@ class MemoryCfg:
 @dataclass
 class AmdCfg:
     compile: bool = False
-    tunableop: bool = True
+    tunableop: bool = True            # reuse saved TunableOp results (tuned matrix multiplies)
+    tunableop_tune: bool = False      # True = run a tuning pass that WRITES the results file
     hipblaslt: bool = False
-    miopen_find_mode: str = "Fast"
+    miopen_find_mode: str = "FAST"
     aotriton_experimental: bool = True
 
 
 @dataclass
 class Config:
-    model_family: str = "llm"
+    model_family: str = "llm"     # llm | diffusion
     base_model: str = ""
     dataset_dir: str = ""
     output_dir: str = "outputs/run"
@@ -63,7 +67,7 @@ class Config:
     train: TrainCfg = field(default_factory=TrainCfg)
     precision: PrecisionCfg = field(default_factory=PrecisionCfg)
     memory: MemoryCfg = field(default_factory=MemoryCfg)
-    attention: str = "spda_flash"
+    attention: str = "sdpa_flash"
     amd: AmdCfg = field(default_factory=AmdCfg)
 
 

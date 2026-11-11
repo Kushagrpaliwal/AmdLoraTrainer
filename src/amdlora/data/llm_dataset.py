@@ -1,6 +1,7 @@
 """Step 5 (LLM): text files -> tokenized samples with labels for next-token loss."""
 from __future__ import annotations
 import json
+import random
 from pathlib import Path
 import torch
 from torch.utils.data import Dataset
@@ -25,24 +26,29 @@ def load_texts(folder: str | Path) -> list[str]:
     return texts
 
 
-def split_text(texts:list[str] , val_split: float , seed: int = 42) -> tuple[list[str] , list[str]]:
+def split_texts(texts: list[str], val_split: float, seed: int = 42) -> tuple[list[str], list[str]]:
+    """Step 10: hold out a share of the samples for validation.
+
+    The split happens on the raw texts, so a validation sample can never reach training.
+    Its own Random(seed) means the same seed always gives the same split, without
+    touching the global random state.
+    """
     if not 0.0 <= val_split < 1.0:
-        raise ValueError(f"val_split must be in [0,1), got {val_split}")
+        raise ValueError(f"val_split must be in [0, 1), got {val_split}")
     if val_split == 0.0:
-        return list(texts) , []
-    
-    n_val = max(1,round(len(texts) * val_split))
+        return list(texts), []
+
+    n_val = max(1, round(len(texts) * val_split))
     if n_val >= len(texts):
-        raise ValueError(f"val_split={val_split} leave no training samples ({len(texts)} samples in total)")
-    
+        raise ValueError(f"val_split={val_split} leaves no training samples ({len(texts)} samples in total)")
+
     order = list(range(len(texts)))
     random.Random(seed).shuffle(order)
     val_indices = set(order[:n_val])
 
-    train = [t for i , t in enumerate(texts) if i not in val_indices]
+    train = [t for i, t in enumerate(texts) if i not in val_indices]
     val = [texts[i] for i in sorted(val_indices)]
-
-    retrun train, val
+    return train, val
 
 
 class TextDataset(Dataset):

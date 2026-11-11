@@ -1,3 +1,4 @@
+"""Step 10: write training numbers to metrics.jsonl (one JSON object per line)."""
 from __future__ import annotations
 import json
 import time

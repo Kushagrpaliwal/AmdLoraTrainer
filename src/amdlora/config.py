@@ -50,7 +50,7 @@ class MemoryCfg:
 @dataclass
 class AmdCfg:
     compile: bool = False
-    tunableop: bool = True            # reuse samatrix multiplies)
+    tunableop: bool = True            # reuse saved TunableOp results (tuned matrix multiplies)
     tunableop_tune: bool = False      # True = run a tuning pass that WRITES the results file
     hipblaslt: bool = False
     miopen_find_mode: str = "FAST"
@@ -61,7 +61,7 @@ class AmdCfg:
 class MonitorCfg:
     """Step 10: validation loss, sample answers and the best checkpoint."""
     val_split: float = 0.0            # share of samples held out for validation (0 = no validation)
-    val_every: int = 0                # validatefore and after training)
+    val_every: int = 0                # validate every N updates (0 = only before and after training)
     sample_every: int = 0             # write sample answers every N updates (0 = off)
     sample_prompts: list[str] = field(default_factory=list)
     sample_max_tokens: int = 40
@@ -90,7 +90,7 @@ def _build(cls, data: dict[str, Any]):
         if k not in known:
             raise ValueError(f"Unknown config key '{k}' in {cls.__name__}")
         default = getattr(cls(), k)
-        kwargs[k] = _build(type(default), v) if nstance(v, dict) else v
+        kwargs[k] = _build(type(default), v) if is_dataclass(default) and isinstance(v, dict) else v
     return cls(**kwargs)
 
 

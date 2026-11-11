@@ -13,13 +13,6 @@ def tiny_model():
     from transformers import LlamaConfig, LlamaForCausalLM
     torch.manual_seed(0)
     hf = LlamaConfig(vocab_size=100, hidden_size=32, intermediate_size=64, num_hidden_layers=2,
-
-
-def tiny_model():
-    pytest.importorskip("transformers")
-    from transformers import LlamaConfig, LlamaForCausalLM
-    torch.manual_seed(0)
-    hf = LlamaConfig(vocab_size=100, hidden_size=32, intermediate_size=64, num_hidden_layers=2,
                      num_attention_heads=4, num_key_value_heads=4, max_position_embeddings=64)
     model = LlamaForCausalLM(hf)
     inject_lora(model, ["q_proj", "v_proj"], rank=4, alpha=4)
@@ -56,5 +49,3 @@ def test_every_token_counts_the_same():
     # A plain average of batch losses would change with the batch size; a per-token average must not.
     model = tiny_model()
     assert evaluate(model, make_loader(1), CPU) == pytest.approx(evaluate(model, make_loader(2), CPU), rel=1e-5)
-
-    

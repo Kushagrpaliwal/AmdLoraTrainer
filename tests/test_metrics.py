@@ -13,13 +13,6 @@ def test_logger_writes_one_json_object_per_line(tmp_path):
     logger.log(kind="val", step=1, val_loss=2.7)
     logger.close()
     rows = read_lines(tmp_path / "metrics.jsonl")
-
-def test_logger_writes_one_json_object_per_line(tmp_path):
-    logger = MetricsLogger(tmp_path)
-    logger.log(kind="train", step=1, loss=2.5)
-    logger.log(kind="val", step=1, val_loss=2.7)
-    logger.close()
-    rows = read_lines(tmp_path / "metrics.jsonl")
     assert [r["kind"] for r in rows] == ["train", "val"]
     assert rows[1]["val_loss"] == 2.7
     assert "time" in rows[0]

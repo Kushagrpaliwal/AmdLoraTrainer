@@ -1,3 +1,16 @@
+"""Training loop for LLMs (next-token prediction). Diffusion training comes later.
+
+Changes in the "AMD speed" step (search for "AMD SPEED"):
+    - optional torch.compile (amd.compile in the config), always saving from the original model
+    - fixed-shape batches (train.pad_to), which torch.compile and TunableOp need
+    - the progress line also shows ms per update, which stays meaningful with padding
+
+Changes in Step 10 (search for "STEP 10"):
+    - train/validation split; validation loss before training, every monitor.val_every updates and at the end
+    - every update is written to metrics.jsonl (draw it with scripts/plot_metrics.py)
+    - answers to fixed prompts are written to samples.md
+    - lora_best.safetensors keeps the LoRA with the lowest validation loss
+"""
 from __future__ import annotations
 import math
 import time
@@ -23,14 +36,6 @@ def count_total_updates(num_batches: int, cfg) -> int:
     t = cfg.train
     updates_per_epoch = math.ceil(num_batches / t.grad_accum)
     total = updates_per_epoch * t.epochs
-    if t.max_steps > 0:
-        total = min(total, t.max_steps)
-    return total
-
-
-def speed_numbers(recent_losses, tokens, seconds, updates_in_window, on_gpu) -> dict:
-    numbers = {
-        "avg_loss": sum(recent_losses) / len(recent_losses),
     if t.max_steps > 0:
         total = min(total, t.max_steps)
     return total
@@ -163,18 +168,6 @@ def run_training(model, loader, cfg, out_dir, device, val_loader=None, tokenizer
 
                 # STEP 10: moving the timer start forward keeps validation and sample time
                 # out of tok/s and ms/update
-                if val_loader is not None and mon.val_every > 0 and updates_done % mon.val_every == 0:
-                    log_timer_start += validate(updates_done)
-                if want_samples and updates_done % mon.sample_every == 0:
-                    log_timer_start += sample(updates_done)
-
-                # STEP 10: moving the timer start forward keeps validation and sample time
-                # out of tok/s and ms/update
-                if val_loader is not None and mon.val_every > 0 and updates_done % mon.val_every == 0:
-                    log_timer_start += validate(updates_done)
-                if want_samples and updates_done % mon.sample_every == 0:
-                    log_timer_start += sample(updates_done)
-
                 if val_loader is not None and mon.val_every > 0 and updates_done % mon.val_every == 0:
                     log_timer_start += validate(updates_done)
                 if want_samples and updates_done % mon.sample_every == 0:

@@ -1,4 +1,3 @@
-
 """Step 10: let the model answer fixed prompts, so you can read how the LoRA changes it."""
 from __future__ import annotations
 from pathlib import Path

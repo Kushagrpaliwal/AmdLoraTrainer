@@ -9,12 +9,12 @@ from amdlora.env import apply_amd_env
 
 apply_amd_env()                                   # must run before torch is imported
 
-import torch  # noqa: E402
 from safetensors import safe_open  # noqa: E402
 from amdlora.io.save import load_lora, find_lora_layers  # noqa: E402
 from amdlora.lora.inject import inject_lora  # noqa: E402
 from amdlora.models.loader import load_llm  # noqa: E402
 from amdlora.models.registry import default_targets  # noqa: E402
+from amdlora.monitor.samples import generate_answer  # noqa: E402
 
 # Questions that were NOT in the training data, so we can see if the style carried over.
 PROMPTS = [
@@ -22,16 +22,6 @@ PROMPTS = [
     "Question: Tell me about the desert.\nAnswer:",
     "Question: Why do people like pizza?\nAnswer:",
 ]
-
-
-def answer(model, tokenizer, prompt: str) -> str:
-    """Let the model continue the prompt and return only the new text."""
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    with torch.no_grad():
-        output = model.generate(**inputs, max_new_tokens=40, do_sample=False,
-                                use_cache=True, pad_token_id=tokenizer.pad_token_id)
-    new_tokens = output[0][inputs["input_ids"].shape[1]:]
-    return tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
 
 def main():
@@ -55,11 +45,11 @@ def main():
     for prompt in PROMPTS:
         for layer in layers:                      # LoRA OFF: strength 0 = original model
             layer.scale = 0.0
-        before = answer(model, tokenizer, prompt)
+        before = generate_answer(model, tokenizer, prompt, max_new_tokens=40)
 
         for layer, strength in zip(layers, full_strength):   # LoRA ON: restore strength
             layer.scale = strength
-        after = answer(model, tokenizer, prompt)
+        after = generate_answer(model, tokenizer, prompt, max_new_tokens=40)
 
         print("=" * 70)
         print(prompt)

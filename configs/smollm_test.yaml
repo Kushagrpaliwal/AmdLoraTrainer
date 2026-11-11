@@ -8,3 +8,12 @@ precision: {compute_dtype: bf16, base_load: bf16}
 memory: {gradient_checkpointing: false, cpu_offload: false}
 attention: sdpa_flash
 amd: {compile: false, tunableop: true, hipblaslt: false, miopen_find_mode: FAST}
+monitor:
+  val_split: 0.1
+  val_every: 10
+  sample_every: 40
+  sample_max_tokens: 40
+  keep_best: true
+  sample_prompts:
+    - "Question: What is a bicycle?\nAnswer:"
+    - "Question: Tell me about the desert.\nAnswer:"

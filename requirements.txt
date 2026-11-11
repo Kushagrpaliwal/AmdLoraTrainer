@@ -9,3 +9,5 @@ transformers
 diffusers
 accelerate
 pytest
+matplotlib
+peft

@@ -50,11 +50,22 @@ class MemoryCfg:
 @dataclass
 class AmdCfg:
     compile: bool = False
-    tunableop: bool = True            # reuse saved TunableOp results (tuned matrix multiplies)
+    tunableop: bool = True            # reuse samatrix multiplies)
     tunableop_tune: bool = False      # True = run a tuning pass that WRITES the results file
     hipblaslt: bool = False
     miopen_find_mode: str = "FAST"
     aotriton_experimental: bool = True
+
+
+@dataclass
+class MonitorCfg:
+    """Step 10: validation loss, sample answers and the best checkpoint."""
+    val_split: float = 0.0            # share of samples held out for validation (0 = no validation)
+    val_every: int = 0                # validatefore and after training)
+    sample_every: int = 0             # write sample answers every N updates (0 = off)
+    sample_prompts: list[str] = field(default_factory=list)
+    sample_max_tokens: int = 40
+    keep_best: bool = True            # save lora_best.safetensors at the lowest validation loss
 
 
 @dataclass
@@ -69,6 +80,7 @@ class Config:
     memory: MemoryCfg = field(default_factory=MemoryCfg)
     attention: str = "sdpa_flash"
     amd: AmdCfg = field(default_factory=AmdCfg)
+    monitor: MonitorCfg = field(default_factory=MonitorCfg)
 
 
 def _build(cls, data: dict[str, Any]):
@@ -78,7 +90,7 @@ def _build(cls, data: dict[str, Any]):
         if k not in known:
             raise ValueError(f"Unknown config key '{k}' in {cls.__name__}")
         default = getattr(cls(), k)
-        kwargs[k] = _build(type(default), v) if is_dataclass(default) and isinstance(v, dict) else v
+        kwargs[k] = _build(type(default), v) if nstance(v, dict) else v
     return cls(**kwargs)
 
 

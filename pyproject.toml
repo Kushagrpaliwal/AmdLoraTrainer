@@ -17,3 +17,5 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "--basetemp=.pytest_tmp"
+# only test_*.py: tests/feature_smoke_test.py is a GPU benchmark that runs on import
+python_files = ["test_*.py"]

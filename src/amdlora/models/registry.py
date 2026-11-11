@@ -8,6 +8,6 @@ DEFAULT_TARGETS: dict[str, list[str]] = {
 
 def default_targets(family:str) -> list[str]:
   if family not in DEFAULT_TARGETS:
-    raise ValueError(f"Unknown Model Family '{family}'. Known family '{list[DEFAULT_TARGETS]}' ")
+    raise ValueError(f"Unknown Model Family '{family}'. Known family '{list(DEFAULT_TARGETS)}' ")
 
   return list(DEFAULT_TARGETS[family])

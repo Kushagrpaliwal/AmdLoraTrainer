@@ -8,3 +8,8 @@ tunableop_results*.csv
 __pycache__/
 .pytest_tmp/
 models/
+
+# run outputs and AMD tuning caches
+.cache/
+bench_results/
+outputs/
